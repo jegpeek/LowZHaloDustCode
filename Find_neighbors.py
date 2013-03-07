@@ -15,13 +15,15 @@ reload(load_sample)
 ############################################################
 
 ## Foreground (=target) file:
-target_file = '../DATA/fg_MPAJHU.fits'
+datapath = os.path.expanduser('~') + '/Dropbox/LowZHaloDustData/'
+target_file = datapath + 'fg_MPAJHU.fits'
 
-background_file = '../DATA/pg10.fits'
-output_file_name = '../STOMP_OUTPUT/MPA-SDSS.fit'
+#background_file = datapath + 'pg10.fits'
+#output_file_name = datapath + 'MPA-SDSS.fit'
 
-#background_file = '../DATA/g-W1_nod5.fits'
-#output_file_name = '../STOMP_OUTPUT/MPA-WISE.fit'
+background_file = datapath + 'g-W1_nod5.fits'
+output_file_name = datapath + 'MPA-WISE.fit'
+output_file_name = datapath + 'MPA-WISE_REVERSE.fit'
 
 
 # a stomp-specific format. Created by Ryan. Code exists for making such masks within stomp, fwiw
@@ -117,7 +119,12 @@ for target in target_map[:]:
 		z_background = background_sample[index].field('z')
 		
 		# so to implement a redshift cut by target we do the tree search and then the cut. Makes sense.
-		if ( z_background > z_target + delta_z):
+		################### WARNING ###################
+		# THIS IS THE BACKWARD HACK!!!!!!!!!!!!!!!
+		# LOOKING FOR REDDENING BY GALAXIES BEHIND THE BACKGROUND
+		# IS SIMPLY A CHECK TO MAKE SURE WE AREN'T BEING FOOLED
+		################### WARNING ###################
+		if ( z_background < (z_target - delta_z)):
 			x = background_sample[index].field('RA')
 			y = background_sample[index].field('DEC')
 			tmp_ang = stomp.AngularCoordinate(numpy.double(x),numpy.double(y),stomp.AngularCoordinate.Equatorial)

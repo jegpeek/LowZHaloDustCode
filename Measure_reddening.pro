@@ -1,10 +1,14 @@
-pro Measure_reddening, wise, dofit=dofit, dohist=dohist, ps=ps
+pro Measure_reddening, wise, fit, dofit=dofit, dohist=dohist, ps=ps
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
+; FIT: if dofit is set, this is an output of the fit parameters
+; DOFIT: if set, run the fit to the data
+; DOHIST: if set, run the original histograms
+; PS: if set, output an eps file of the histograms
 
 resolve_routine,'display_data'
 
-datapath = '~/Dropbox/LowZDustHaloData/'
+datapath = '~/Dropbox/LowZHaloDustData/'
 if wise eq 1 then begin
 	file_stomp = datapath + 'MPA-WISE.fit' 
 	my_y_tit = textoidl('Color excess g-W1 [mag]')
@@ -90,7 +94,7 @@ if keyword_set(dofit) then begin
 	if ~nossfr then inparms = [inparms, 1]
 	if trunc eq 1 then inparms = [inparms , 1]
 	if trunc eq 2 then inparms = [inparms , 1, 0.1]
-	outmars = mpfit(method, inparms, functargs=faMARS)
+	fit = mpfit(method, inparms, functargs=faMARS)
 endif
 
 if keyword_set(dohist) then begin	
@@ -153,7 +157,9 @@ if keyword_set(dohist) then begin
     my_Yr = [1e-5,1e-1]
     my_xr = [0.02,3.0]*1000.
 	cc = ['g-r', 'g-W1', 'g-W2']
-    if keyword_set(ps) then psopen, '~/Documents/halodust/reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
+    if keyword_set(ps) then psopen, datapath+'reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
+    loadct, 0
+    if ps then !p.font=0 else !p.font = (-1)
     plot,x,y,/xlog,psym=4,yr=my_yr,ylog=1,xr=my_xr,$
       xtit=textoidl('separation [kpc]'),$
       ytit=my_y_tit, /xs, thick=th, xthick=th, ythick=th, /nodata
@@ -170,8 +176,8 @@ if keyword_set(dohist) then begin
 	oplot, 10^xax, 0.5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
 	oplot, 10^xax, 4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=2
 	oplot, 10^xax, 5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
-	xyouts, 0.7, 0.8, mean(10^(a.mass_target)), /norm, charsize=3
-	xyouts, 0.7, 0.7, mean(a.z_target), /norm, charsize=3
+	xyouts, 0.7, 0.8, mean(10^(a.mass_target)), /norm, charsize=3-ps*2
+	xyouts, 0.7, 0.7, mean(a.z_target), /norm, charsize=3-ps*2
 	print, 	(mean(10^(a.mass_target)))
 	if keyword_set(ps) then psclose
 endif
