@@ -1,0 +1,107 @@
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit
+END
+mpfittut.html
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfittut.html
+END
+mpfitpeak.pro
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfitpeak.pro
+END
+gauss1p.pro
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/gauss1p.pro
+END
+mpcurvefit.pro
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpcurvefit.pro
+END
+tnmin.pro
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/tnmin.pro
+END
+mpfitfun.pro
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfitfun.pro
+END
+fakedata.sav
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/fakedata.sav
+END
+MPREADME
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/MPREADME
+END
+gauss1.pro
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/gauss1.pro
+END
+gauss2.pro
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/gauss2.pro
+END
+mpfit2dpeak.pro
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfit2dpeak.pro
+END
+INSTALL
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/INSTALL
+END
+fitqa.html
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/fitqa.html
+END
+setfitparm.pro
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/setfitparm.pro
+END
+mpfitexpr.pro
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfitexpr.pro
+END
+mpfit2dfun.pro
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfit2dfun.pro
+END
+mpfit.pro
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/!svn/ver/871/galfa/gsr/carlpath/idlutils/pro/mpfit/mpfit.pro
+END

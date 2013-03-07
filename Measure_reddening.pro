@@ -1,109 +1,103 @@
+pro Measure_reddening, wise, dofit=dofit, dohist=dohist, ps=ps
+
+; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 
 resolve_routine,'display_data'
 
-;file_stomp = '../STOMP_OUTPUT/MPA-SDSS.fit'
-;my_y_tit = textoidl('Color excess (g-r)_{PG10} [mag]')
-wise =1
+datapath = '~/Dropbox/LowZDustHaloData/'
 if wise eq 1 then begin
-	file_stomp = '../STOMP_OUTPUT/MPA-WISE.fit' 
+	file_stomp = datapath + 'MPA-WISE.fit' 
 	my_y_tit = textoidl('Color excess g-W1 [mag]')
 endif
 if wise eq 2 then begin
-	file_stomp = '../STOMP_OUTPUT/MPA-WISE.fit' 
+	file_stomp = datapath + 'MPA-WISE.fit' 
 	my_y_tit = textoidl('Color excess g-W2 [mag]')
 endif
 if wise eq 0 then begin
-	 file_stomp = '../STOMP_OUTPUT/MPA-SDSS.fit'
+	 file_stomp = datapath + 'MPA-SDSS.fit'
 	 my_y_tit = textoidl('Color excess g-r [mag]')
 endif
 
-file_galaxy = '../DATA/fg_MPAJHU.fits'
-filegw1 = '../../g-W1_nod5.fits' 
-filegw2 = '../../g-W2_nod5.fits'
-file2 = '../DATA/pg10.fits'
+file_galaxy = datapath +'fg_MPAJHU.fits'
+filegw1 = datapath +'g-W1_nod5.fits' 
+filegw2 = datapath + 'g-W2_nod5.fits'
+file2 = datapath + 'pg10.fits'
 
-choice = 0
-print,'[0] load data'
-print,'[1] display data'
-print,'[2] display stomp output'
-read,choice
+;if choice eq 0 then begin
+galaxy = MRDFITS(file_galaxy,1)
 
-if choice eq 0 then begin
-    galaxy = MRDFITS(file_galaxy,1)
-    gw1 = MRDFITS(filegw1,1)
-    gw2 = MRDFITS(filegw2,1)
-    pg10 = MRDFITS(file2,1)
-    img = mrdfits('~/Documents/HVCreddening/imaging_dr7_1sig.fits',1, hdr)
+if wise eq 1 then fg = MRDFITS(filegw1,1)
+if wise eq 2 then fg = MRDFITS(filegw2,1)
+if wise eq 0 then fg = MRDFITS(file2,1)
+
+; don't need this, I don't think
+;img =  mrdfits(datapath +'imaging_dr7_1sig.fits',1, hdr)
+;endif
+
+trunc = 1
+a = MRDFITS(file_stomp,1)
+;a = a[where(a.physical_separation_mpc lt 1)]
+; option to get rid of the southern strips. NOT SUGGESTED.
+
+north=0
+minra = 100
+maxra = 280
+
+docorrect=1
+; option to do a polynomial correction in z. SUGGESTED FOR CURRENT REDECTION
+if docorrect then begin
+	rollmed, fg.z, fg.color, 0.003, xz, yc
+	order=7
+	pf = poly_fit(xz, yc, order, yfit=yf)
+	nfg = n_elements(fg)
+	fg.color=fg.color - total(rebin(reform(fg.z, nfg, 1), nfg, order+1)^(rebin(reform(findgen(order+1), 1, order+1), nfg, order+1))*rebin(pf, nfg, order+1), 2)
+	rollmed, fg.z, fg.color, 0.003, xz, yc
+	;oplot, xz, yc, psym=4, color=100
 endif
 
-if choice eq 1 then DISPLAY_DATA,galaxy,gW1,pg10
 
-if choice eq 2 then begin
-	trunc = 1
-    a = MRDFITS(file_stomp,1)
-    ;a = a[where(a.physical_separation_mpc lt 1)]
-    ; get rid of the southern strips, to avoid strange contamination. (?)
-	north=0
-	minra = 100
-	maxra = 280
-	if wise eq 1 then fg = gw1
-	if wise eq 2 then fg = gw2
-	if wise eq 0 then fg = pg10
-	docorrect=1
-	if docorrect then begin
-		rollmed, fg.z, fg.color, 0.003, xz, yc
-		;plot, xz, yc, psym=1
-		
+; do the actual fit to the data
+if keyword_set(dofit) then begin
+; option to use median fitting. SUGGESTED.
+	usemed = 1
+	if usemed then begin
+		method = 'plfit_mars'
+		fg.color = fg.color-median(fg.color)
+	endif else begin
+		method = 'plfit'
+		fg.color = fg.color-mean(fg.color)
+	endelse
 	
-		order=7
-		pf = poly_fit(xz, yc, order, yfit=yf)
-		nfg = n_elements(fg)
-		;oplot, xz, yf
-		fg.color=fg.color - total(rebin(reform(fg.z, nfg, 1), nfg, order+1)^(rebin(reform(findgen(order+1), 1, order+1), nfg, order+1))*rebin(pf, nfg, order+1), 2)
-		rollmed, fg.z, fg.color, 0.003, xz, yc
-		;oplot, xz, yc, psym=4, color=100
-	endif
-	dofit = 0
-	if dofit then begin
-		usemed = 1
-		if usemed then begin
-			method = 'plfit_mars'
-			fg.color = fg.color-median(fg.color)
-		endif else begin
-			method = 'plfit'
-			fg.color = fg.color-mean(fg.color)
-		endelse
+	; option to avoid fitting to specific starformation rate	
+	nossfr=1
+	if nossfr then method = method+'nossfr'
 		
-		nossfr=1
-		if nossfr then method = method+'nossfr'
+
+	ys = fg[a.master_index].color
+	xs = fltarr(3, n_elements(a))
+	xs[0, *] = a.physical_separation_mpc*10. ; in units of 100 kpc
+	xs[1, *] = 10^(a.mass_target - 10.77) ; in units of 6 x 10^10 solar masses
+	ssfr = a.ssfr_target
+	ssfr(where(ssfr lt -20)) = min(ssfr(where(ssfr gt -20))) ; get rid of a few crazy outliers
+	xs[2, *] = 10^(a.ssfr_target + 11) ; in units of the ~median SSFR, 10^-11 
+	errs=fltarr(n_elements(a)) + 0.023 ; this doesn't actually get used in the median fit, FYI
+	faMARS = {x:xs, y:ys, err:errs}
 		
-		ys = fg[a.master_index].color
-		
-		xs = fltarr(3, n_elements(a))
-		xs[0, *] = a.physical_separation_mpc*10. ; at 100 kpc
-		xs[1, *] = 10^(a.mass_target - 10.77)
-		ssfr = a.ssfr_target
-		ssfr(where(ssfr lt -20)) = min(ssfr(where(ssfr gt -20)))
-		xs[2, *] = 10^(a.ssfr_target + 11)
-		 
-		errs=fltarr(n_elements(a)) + 0.023
-		
-		faMARS = {x:xs, y:ys, err:errs}
-		
-		
-		if trunc eq 1 then method = 'trunc' + method
-		if trunc eq 2 then method = 'trunc2' + method
-		inparms = [1d-3, -1, 1, 1]
-		if ~nossfr then inparms = [inparms, 1]
-		if trunc eq 1 then inparms = [inparms , 1]
-		if trunc eq 2 then inparms = [inparms , 1, 0.1]
-		outmars = mpfit(method, inparms, functargs=faMARS)
-	endif
-	
+	; truncation with a single radius (1) or mass dependency (2)
+	if trunc eq 1 then method = 'trunc' + method
+	if trunc eq 2 then method = 'trunc2' + method
+	inparms = [1d-3, -1, 1, 1]
+	if ~nossfr then inparms = [inparms, 1]
+	if trunc eq 1 then inparms = [inparms , 1]
+	if trunc eq 2 then inparms = [inparms , 1, 0.1]
+	outmars = mpfit(method, inparms, functargs=faMARS)
+endif
+
+if keyword_set(dohist) then begin	
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
-	
+	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
 	mmax = 14.0
-	mmin = 10.9
+	mmin = 1.0
 	smin = (-20.0)
 	smax = (-1.0)
 	a = a[where(a.mass_target lt mmax and a.mass_target gt mmin)]
@@ -158,9 +152,8 @@ if choice eq 2 then begin
 	th = 5
     my_Yr = [1e-5,1e-1]
     my_xr = [0.02,3.0]*1000.
-    ps=0
 	cc = ['g-r', 'g-W1', 'g-W2']
-    if ps then psopen, '~/Documents/halodust/reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
+    if keyword_set(ps) then psopen, '~/Documents/halodust/reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
     plot,x,y,/xlog,psym=4,yr=my_yr,ylog=1,xr=my_xr,$
       xtit=textoidl('separation [kpc]'),$
       ytit=my_y_tit, /xs, thick=th, xthick=th, ythick=th, /nodata
@@ -180,7 +173,7 @@ if choice eq 2 then begin
 	xyouts, 0.7, 0.8, mean(10^(a.mass_target)), /norm, charsize=3
 	xyouts, 0.7, 0.7, mean(a.z_target), /norm, charsize=3
 	print, 	(mean(10^(a.mass_target)))
-	if ps then psclose
+	if keyword_set(ps) then psclose
 endif
 
 
