@@ -1,4 +1,4 @@
-pro Measure_reddening, wise, fit, dofit=dofit, dohist=dohist, ps=ps
+pro Measure_reddening, wise, fit, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 ; FIT: if dofit is set, this is an output of the fit parameters
@@ -10,15 +10,18 @@ resolve_routine,'display_data'
 
 datapath = '~/Dropbox/LowZHaloDustData/'
 if wise eq 1 then begin
-	file_stomp = datapath + 'MPA-WISE.fit' 
+	file_stomp = datapath + 'MPA-WISE.fit'
+	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
 	my_y_tit = textoidl('Color excess g-W1 [mag]')
 endif
 if wise eq 2 then begin
-	file_stomp = datapath + 'MPA-WISE.fit' 
+	file_stomp = datapath + 'MPA-WISE.fit'
+	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
 	my_y_tit = textoidl('Color excess g-W2 [mag]')
 endif
 if wise eq 0 then begin
 	 file_stomp = datapath + 'MPA-SDSS.fit'
+	 if keyword_set(backcheck) then file_stomp = datapath + 'MPA-SDSS_REVERSE.fit' 
 	 my_y_tit = textoidl('Color excess g-r [mag]')
 endif
 
@@ -48,7 +51,7 @@ minra = 100
 maxra = 280
 
 docorrect=1
-; option to do a polynomial correction in z. SUGGESTED FOR CURRENT REDECTION
+; option to do a polynomial correction in z. SUGGESTED FOR CURRENT REDUCTION
 if docorrect then begin
 	rollmed, fg.z, fg.color, 0.003, xz, yc
 	order=7
@@ -157,7 +160,9 @@ if keyword_set(dohist) then begin
     my_Yr = [1e-5,1e-1]
     my_xr = [0.02,3.0]*1000.
 	cc = ['g-r', 'g-W1', 'g-W2']
+
     if keyword_set(ps) then psopen, datapath+'reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
+	if ~keyword_set(ps) then ps=0
     loadct, 0
     if ps then !p.font=0 else !p.font = (-1)
     plot,x,y,/xlog,psym=4,yr=my_yr,ylog=1,xr=my_xr,$
