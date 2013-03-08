@@ -104,7 +104,7 @@ if keyword_set(dohist) then begin
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
 	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
 	mmax = 14.0
-	mmin = 1.0
+	mmin = 11.4
 	smin = (-20.0)
 	smax = (-1.0)
 	a = a[where(a.mass_target lt mmax and a.mass_target gt mmin)]

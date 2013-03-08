@@ -18,13 +18,13 @@ reload(load_sample)
 datapath = os.path.expanduser('~') + '/Dropbox/LowZHaloDustData/'
 target_file = datapath + 'fg_MPAJHU.fits'
 
-background_file = datapath + 'pg10.fits'
-output_file_name = datapath + 'MPA-SDSS.fit'
-output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+#background_file = datapath + 'pg10.fits'
+#output_file_name = datapath + 'MPA-SDSS.fit'
+#output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
 
-#background_file = datapath + 'g-W1_nod5.fits'
+background_file = datapath + 'g-W1_nod5.fits'
 #output_file_name = datapath + 'MPA-WISE.fit'
-#output_file_name = datapath + 'MPA-WISE_REVERSE.fit'
+output_file_name = datapath + 'MPA-WISE_REVERSE.fit'
 
 
 # a stomp-specific format. Created by Ryan. Code exists for making such masks within stomp, fwiw
@@ -85,6 +85,7 @@ color_list = []
 z_target_list = []
 mass_target_list = []
 ssfr_target_list = []
+pmagr_target_list = []
 z_background_list = []
 master_index_list = []
 master_list = []
@@ -103,6 +104,7 @@ for target in target_map[:]:
 	z_target = target_sample[target.Index()].field('z')
 	mass_target = target_sample[target.Index()].field('mass')
 	ssfr_target = target_sample[target.Index()].field('ssfr')
+	pmagr_target = target_sample[target.Index()].field('pmagr')
 	dist_to_target_Mpc = stomp.Cosmology_AngularDiameterDistance( numpy.double(z_target) )
 	
 	theta_min = r_p_min_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
@@ -136,6 +138,7 @@ for target in target_map[:]:
 				z_target_list.append(z_target)
 				mass_target_list.append(mass_target)
 				ssfr_target_list.append(ssfr_target)
+				pmagr_target_list.append(pmagr_target)
 				z_background_list.append(z_background)
 				physical_separation = stomp.Cosmology_ProjectedDistance( numpy.double(z_target), separation_arcsec/3600.)
 				# the physical separation is in Mpc
@@ -143,7 +146,7 @@ for target in target_map[:]:
 				color = background_sample[index].field('color')
 				color_list.append(color)
 				
-				master_list.append([z_target,mass_target, ssfr_target, index,separation_arcsec,physical_separation,color])
+				master_list.append([z_target,mass_target, ssfr_target, pmagr_target,index,separation_arcsec,physical_separation,color])
 
 				
 print "found %i pairs" % len(z_background_list)
@@ -154,11 +157,12 @@ index_col = pyfits.Column(name="master_index", format="J", array=master_index_li
 z_target_col = pyfits.Column(name="z_target", format="E", array=z_target_list)
 mass_target_col = pyfits.Column(name="mass_target", format="E", array=mass_target_list)
 ssfr_target_col = pyfits.Column(name="ssfr_target", format="E", array=ssfr_target_list)
+pmagr_target_col = pyfits.Column(name="pmagr_target", format="E", array=pmagr_target_list)
 z_background_col = pyfits.Column(name="z_background", format="E", array=z_background_list)
 physical_separation_col = pyfits.Column(name="physical_separation_Mpc", format="E", array=physical_separation_list)
 color_col = pyfits.Column(name="color", format="E", array=color_list)
 
-cols = pyfits.ColDefs([index_col, z_target_col, mass_target_col, ssfr_target_col, z_background_col, physical_separation_col,color_col])
+cols = pyfits.ColDefs([index_col, z_target_col, mass_target_col, ssfr_target_col, pmagr_target_col, z_background_col, physical_separation_col,color_col])
 
 my_output = pyfits.new_table(cols)
 print "Writing to %s..." % output_file_name
