@@ -18,13 +18,13 @@ reload(load_sample)
 datapath = os.path.expanduser('~') + '/Dropbox/LowZHaloDustData/'
 target_file = datapath + 'fg_MPAJHU.fits'
 
-#background_file = datapath + 'pg10.fits'
+background_file = datapath + 'pg10.fits'
 #output_file_name = datapath + 'MPA-SDSS.fit'
-#output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
 
-background_file = datapath + 'g-W1_nod5.fits'
+#background_file = datapath + 'g-W1_nod5.fits'
 #output_file_name = datapath + 'MPA-WISE.fit'
-output_file_name = datapath + 'MPA-WISE_REVERSE.fit'
+#output_file_name = datapath + 'MPA-WISE_REVERSE.fit'
 
 
 # a stomp-specific format. Created by Ryan. Code exists for making such masks within stomp, fwiw

@@ -1,10 +1,11 @@
-pro Measure_reddening, wise, fit, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a
+pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 ; FIT: if dofit is set, this is an output of the fit parameters
 ; DOFIT: if set, run the fit to the data
 ; DOHIST: if set, run the original histograms
 ; PS: if set, output an eps file of the histograms
+; RC: sdss filter. 1 is g-band, 2 is r-band
 
 resolve_routine,'display_data'
 
@@ -26,8 +27,15 @@ if wise eq 0 then begin
 endif
 
 file_galaxy = datapath +'fg_MPAJHU.fits'
-filegw1 = datapath +'g-W1_nod5.fits' 
-filegw2 = datapath + 'g-W2_nod5.fits'
+if rc eq 1 then begin
+	filegw1 = datapath +'g-W1_nod5.fits' 
+	filegw2 = datapath + 'g-W2_nod5.fits'
+endif
+if rc eq 2 then begin
+	filegw1 = datapath +'r-W1_nod5.fits' 
+	filegw2 = datapath + 'r-W2_nod5.fits'
+endif
+
 file2 = datapath + 'pg10.fits'
 
 ;if choice eq 0 then begin
@@ -38,19 +46,19 @@ if wise eq 2 then fg = MRDFITS(filegw2,1)
 if wise eq 0 then fg = MRDFITS(file2,1)
 
 ; don't need this, I don't think
-;img =  mrdfits(datapath +'imaging_dr7_1sig.fits',1, hdr)
+if wise eq 0 then mag =  mrdfits(datapath +'magnitudes_dr7_1sig.fits',1, hdr)
 ;endif
 
 trunc = 1
 a = MRDFITS(file_stomp,1)
 ;a = a[where(a.physical_separation_mpc lt 1)]
-; option to get rid of the southern strips. NOT SUGGESTED.
+; option to get rid of the southern strips. NOT SUGGESTED
 
 north=0
 minra = 100
 maxra = 280
 
-docorrect=1
+docorrect=0
 ; option to do a polynomial correction in z. SUGGESTED FOR CURRENT REDUCTION
 if docorrect then begin
 	rollmed, fg.z, fg.color, 0.003, xz, yc
@@ -62,6 +70,10 @@ if docorrect then begin
 	;oplot, xz, yc, psym=4, color=100
 endif
 
+if keyword_set(spectromags) then begin
+	restore, 'pg10_spectrogmr.sav'
+	fg.color = gmr_z
+endif
 
 ; do the actual fit to the data
 if keyword_set(dofit) then begin
@@ -75,10 +87,9 @@ if keyword_set(dofit) then begin
 		fg.color = fg.color-mean(fg.color)
 	endelse
 	
-	; option to avoid fitting to specific starformation rate	
+	; option to avoid fitting to specific star formation rate	
 	nossfr=1
 	if nossfr then method = method+'nossfr'
-		
 
 	ys = fg[a.master_index].color
 	xs = fltarr(3, n_elements(a))
@@ -104,32 +115,52 @@ if keyword_set(dohist) then begin
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
 	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
 	mmax = 14.0
-	mmin = 11.4
+	mmin = 10.9
 	smin = (-20.0)
 	smax = (-1.0)
+;	pmin =14
+;	pmax = 21
 	a = a[where(a.mass_target lt mmax and a.mass_target gt mmin)]
 	print, median(a.ssfr_target)
 	a = a[where(a.ssfr_target lt smax and a.ssfr_target gt smin)]
+;	a = a[where(a.pmagr_target lt pmax and a.pmagr_target gt pmin)]
+	
 	zmin = 0.04
 	a = a[where(a.z_target gt zmin)]
+	
+;	if wise ne 0 then delmag = a.pmagr_target - fg[a.master_index].dered_mag[2]
+;	if wise eq 0 then delmag = a.pmagr_target - mag[a.master_index].dered_mag[2]
+;	whdm = where(delmag gt min(delmag))
+; 	a = a[whdm]
+; 	delmag = delmag[whdm]
     n_r_bin = 10
     r_vector = make_vector(0.02,3.,/log,n_r_bin)
-    color_single = {mean:0.,mean_err:0.,count:0L,median:0., medbterr:0., meanbterr:0.}
+    color_single = {mean:0.,mean_err:0.,count:0L,median:0., medbterr:0., meanbterr:0., medzbin:0.}
     color_list = REPLICATE(color_single, n_r_bin)
     
 	mdclr=  median(fg.color)
 	mnclr=  mean(fg.color)
-	
+	hgz = histogram(fg.z, min=0.0, max=0.3-1d-6, bin=0.01, reverse=ri)
 	if north then begin
 		mdclr=  median(fg[where(fg.ra gt minRA and fg.ra lt maxRA)].color)
 		mnclr=  mean(fg[where(fg.ra gt minRA and fg.ra lt maxRA)].color)
 	endif
 	
+	donormhist = 1
+	
     for i_bin=0,n_r_bin-1 do begin
     	loop_bar, i_bin, n_r_bin
         ind_in_bin = where( ((a.physical_separation_mpc) gt r_vector[i_bin].bound_min) AND $
                             ((a.physical_separation_mpc) lt r_vector[i_bin].bound_max), ct)
-
+		if donormhist then begin
+			hgind = histogram(fg[a[ind_in_bin].master_index].z, min=0.0, max=0.3-1d-6, bin=0.01)
+			clrind = hgind*0.0
+			for j=0, n_elements(hgind)-1 do begin
+				if hgind[j] ne 0 then clrind[j] = median(fg[(ri[ri[j]:ri[j+1]-1])[randomu(seed, hgind[j]*100)*hgz[j]]].color)-mdclr				
+			endfor
+			color_list[i_bin].medzbin = total(hgind*clrind)/total(hgind)
+		endif
+		
         color_list[i_bin].count = n_elements(ind_in_bin)
         color_list[i_bin].mean = AVG(fg[a[ind_in_bin].master_index].color) -mnclr
         if ct ne 1 then color_list[i_bin].median = MEDIAN(fg[a[ind_in_bin].master_index].color)-mdclr else color_list[i_bin].median = fg[a[ind_in_bin].master_index].color-mdclr 
@@ -151,7 +182,7 @@ if keyword_set(dohist) then begin
 	
 
     x = r_vector.mean_2d*1000
-    y = color_list.mean
+    y = color_list.median
     y = y; - y[n_r_bin-1]
     y_err = color_list.mean_err
     print,y
@@ -160,7 +191,6 @@ if keyword_set(dohist) then begin
     my_Yr = [1e-5,1e-1]
     my_xr = [0.02,3.0]*1000.
 	cc = ['g-r', 'g-W1', 'g-W2']
-
     if keyword_set(ps) then psopen, datapath+'reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
 	if ~keyword_set(ps) then ps=0
     loadct, 0
@@ -171,9 +201,15 @@ if keyword_set(dohist) then begin
 ;    my_oploterr,x,y,y_err,psym=4,miny=my_yr[0], thick=th
     y = color_list.median
     print,y
-    oplot,x*1.05,y,psym=4, color=getcolor('red',1)
-        my_oploterr,x*1.05,y,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('red',1)
+    oplot,x,y,psym=4, color=getcolor('red',1)
+        my_oploterr,x,y,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('red',1)
     ylast = y[n_elements(y)-1]
+    oplot, x, color_list.medzbin,color=getcolor('red',1), psym=-2
+    oplot, x, color_list.medzbin*(-1),color=getcolor('blue',1), psym=-2
+	print,color_list.medzbin
+      oplot,x*1.05,y*(-1),psym=4, color=getcolor('blue',1)
+        my_oploterr,x*1.05,y*(-1),y_err,psym=4,miny=my_yr[0],errcolor=getcolor('blue',1), linestyle=1
+ 
   ;  oplot,x*1.05,y-ylast,psym=4, color=getcolor('green',1)
    ; 	my_oploterr,x*1.05,y-ylast,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('green',1)
 	
