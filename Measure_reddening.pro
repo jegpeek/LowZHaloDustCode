@@ -5,7 +5,7 @@ pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backche
 ; DOFIT: if set, run the fit to the data
 ; DOHIST: if set, run the original histograms
 ; PS: if set, output an eps file of the histograms
-; RC: sdss filter. 1 is g-band, 2 is r-band
+; RC: sdss filter to compare to WISE, if wise != 0. 1 is g-band, 2 is r-band
 
 resolve_routine,'display_data'
 
@@ -71,8 +71,10 @@ if docorrect then begin
 endif
 
 if keyword_set(spectromags) then begin
-	restore, 'pg10_spectrogmr.sav'
-	fg.color = gmr_z
+
+	restore, datapath + 'pg10_spectrormi.sav', /ver
+	print, 'SMS'
+	fg.color = spectro_clr
 endif
 
 ; do the actual fit to the data
@@ -115,7 +117,7 @@ if keyword_set(dohist) then begin
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
 	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
 	mmax = 14.0
-	mmin = 10.9
+	mmin = 10.8
 	smin = (-20.0)
 	smax = (-1.0)
 ;	pmin =14
@@ -158,6 +160,7 @@ if keyword_set(dohist) then begin
 			for j=0, n_elements(hgind)-1 do begin
 				if hgind[j] ne 0 then clrind[j] = median(fg[(ri[ri[j]:ri[j+1]-1])[randomu(seed, hgind[j]*100)*hgz[j]]].color)-mdclr				
 			endfor
+
 			color_list[i_bin].medzbin = total(hgind*clrind)/total(hgind)
 		endif
 		
@@ -182,8 +185,8 @@ if keyword_set(dohist) then begin
 	
 
     x = r_vector.mean_2d*1000
-    y = color_list.median
-    y = y; - y[n_r_bin-1]
+    ; subtracting off some kind of error from the redshift distribution?
+    y = color_list.median-color_list.medzbin
     y_err = color_list.mean_err
     print,y
     print,color_list.count
@@ -199,7 +202,6 @@ if keyword_set(dohist) then begin
       xtit=textoidl('separation [kpc]'),$
       ytit=my_y_tit, /xs, thick=th, xthick=th, ythick=th, /nodata
 ;    my_oploterr,x,y,y_err,psym=4,miny=my_yr[0], thick=th
-    y = color_list.median
     print,y
     oplot,x,y,psym=4, color=getcolor('red',1)
         my_oploterr,x,y,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('red',1)
