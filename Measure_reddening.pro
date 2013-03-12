@@ -46,7 +46,18 @@ if wise eq 2 then fg = MRDFITS(filegw2,1)
 if wise eq 0 then fg = MRDFITS(file2,1)
 
 ; don't need this, I don't think
-if wise eq 0 then mag =  mrdfits(datapath +'magnitudes_dr7_1sig.fits',1, hdr)
+if wise eq 0 then begin
+	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr)
+	amag = kc.absmag[2]
+endif
+
+if wise ne 0 then begin
+	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr)
+	amag = kc[fg.index].absmag[2]
+endif
+
+
+;mag =  mrdfits(datapath +'magnitudes_dr7_1sig.fits',1, hdr)
 ;endif
 
 trunc = 1
@@ -58,7 +69,7 @@ north=0
 minra = 100
 maxra = 280
 
-docorrect=0
+docorrect=1
 ; option to do a polynomial correction in z. SUGGESTED FOR CURRENT REDUCTION
 if docorrect then begin
 	rollmed, fg.z, fg.color, 0.003, xz, yc
@@ -117,7 +128,7 @@ if keyword_set(dohist) then begin
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
 	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
 	mmax = 14.0
-	mmin = 10.8
+	mmin = 10.2
 	smin = (-20.0)
 	smax = (-1.0)
 ;	pmin =14
@@ -127,8 +138,8 @@ if keyword_set(dohist) then begin
 	a = a[where(a.ssfr_target lt smax and a.ssfr_target gt smin)]
 ;	a = a[where(a.pmagr_target lt pmax and a.pmagr_target gt pmin)]
 	
-	zmin = 0.04
-	a = a[where(a.z_target gt zmin)]
+	zbuf = 0.02
+	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
 	
 ;	if wise ne 0 then delmag = a.pmagr_target - fg[a.master_index].dered_mag[2]
 ;	if wise eq 0 then delmag = a.pmagr_target - mag[a.master_index].dered_mag[2]
@@ -142,12 +153,12 @@ if keyword_set(dohist) then begin
     
 	mdclr=  median(fg.color)
 	mnclr=  mean(fg.color)
-	hgz = histogram(fg.z, min=0.0, max=0.3-1d-6, bin=0.01, reverse=ri)
+	hgz = h2d_ri(fg.z, amag, zvec=fg.color-mnclr, 0.02, 0.2, xrng=[0, 0.3], yrng=[-24, -16], zimg=clrh2d)
+	
 	if north then begin
 		mdclr=  median(fg[where(fg.ra gt minRA and fg.ra lt maxRA)].color)
 		mnclr=  mean(fg[where(fg.ra gt minRA and fg.ra lt maxRA)].color)
 	endif
-	
 	donormhist = 1
 	
     for i_bin=0,n_r_bin-1 do begin
@@ -155,18 +166,19 @@ if keyword_set(dohist) then begin
         ind_in_bin = where( ((a.physical_separation_mpc) gt r_vector[i_bin].bound_min) AND $
                             ((a.physical_separation_mpc) lt r_vector[i_bin].bound_max), ct)
 		if donormhist then begin
-			hgind = histogram(fg[a[ind_in_bin].master_index].z, min=0.0, max=0.3-1d-6, bin=0.01)
-			clrind = hgind*0.0
-			for j=0, n_elements(hgind)-1 do begin
-				if hgind[j] ne 0 then clrind[j] = median(fg[(ri[ri[j]:ri[j+1]-1])[randomu(seed, hgind[j]*100)*hgz[j]]].color)-mdclr				
-			endfor
-
-			color_list[i_bin].medzbin = total(hgind*clrind)/total(hgind)
+			hgz_ind_in_bin = h2d_ri(a[ind_in_bin].z_background, amag[a[ind_in_bin].master_index], 0.02, 0.2, xrng=[0, 0.3], yrng=[-24, -16])
+			
+			;hgind = histogram(fg[a[ind_in_bin].master_index].z, min=0.0, max=0.3-1d-6, bin=0.01)
+			;clrind = hgind*0.0
+			;for j=0, n_elements(hgind)-1 do begin
+			;	if hgind[j] ne 0 then clrind[j] = median(fg[(ri[ri[j]:ri[j+1]-1])[randomu(seed, hgind[j]*100)*hgz[j]]].color)-mdclr				
+			;endfor
+			color_list[i_bin].medzbin = total(hgz_ind_in_bin*clrh2d)/total(hgz_ind_in_bin)
 		endif
 		
         color_list[i_bin].count = n_elements(ind_in_bin)
-        color_list[i_bin].mean = AVG(fg[a[ind_in_bin].master_index].color) -mnclr
-        if ct ne 1 then color_list[i_bin].median = MEDIAN(fg[a[ind_in_bin].master_index].color)-mdclr else color_list[i_bin].median = fg[a[ind_in_bin].master_index].color-mdclr 
+        color_list[i_bin].mean = mean(fg[a[ind_in_bin].master_index].color)-mnclr
+        if ct ne 1 then color_list[i_bin].median = MEDIAN(fg[a[ind_in_bin].master_index].color)-mdclr else color_list[i_bin].median = fg[a[ind_in_bin].master_index].color-mdclr
         color_list[i_bin].mean_err = STDDEV(a[ind_in_bin].color)/sqrt(n_elements(ind_in_bin))
         
 		nb = 0
@@ -186,7 +198,7 @@ if keyword_set(dohist) then begin
 
     x = r_vector.mean_2d*1000
     ; subtracting off some kind of error from the redshift distribution?
-    y = color_list.median-color_list.medzbin
+    y = color_list.median-color_list[n_r_bin-1].median
     y_err = color_list.mean_err
     print,y
     print,color_list.count

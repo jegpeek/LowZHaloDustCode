@@ -7,7 +7,7 @@ fc_gri = [3.79300  ,    2.75100   ,   2.08600]
 
 
 clr = ['g', 'r', 'i']
-bluefilter = 0
+bluefilter = 1
 redfilter = 2
 
 rollmed, gi[indx].z, gi[indx].spectro_mag[bluefilter] -  gi[indx].spectro_mag[redfilter],  0.01, xs, ys
@@ -29,6 +29,8 @@ print, gf_z[2]/(fc_gri[bluefilter]-fc_gri[redfilter])
 amagr_spectro = gi[indx].spectro_mag[redfilter] - 5*(alog10(lumdist(gi[indx].z)*1d6) - 1)
 
 rollmed, amagr_spectro,gmr_z,  0.1, xs, ys
+plot, xs, ys, psym=1
+
 whsub = where(xs gt (-22.9) and xs lt (-16.8))
 order=7
 pf = poly_fit(xs[whsub], ys[whsub], order, yfit=yf)
