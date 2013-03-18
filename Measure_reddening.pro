@@ -22,7 +22,11 @@ if wise eq 2 then begin
 endif
 if wise eq 0 then begin
 	 file_stomp = datapath + 'MPA-SDSS.fit'
-	 if keyword_set(backcheck) then file_stomp = datapath + 'MPA-SDSS_REVERSE.fit' 
+;	 file_stomp_asec = datapath + 'MPA-SDSS_asec.sav'
+	 if keyword_set(backcheck) then begin
+	 	file_stomp = datapath + 'MPA-SDSS_REVERSE.fit' 
+	;	file_stomp_asec = datapath + 'MPA-SDSS_REVERSE_asec.sav'
+	endif
 	 my_y_tit = textoidl('Color excess g-r [mag]')
 endif
 
@@ -39,20 +43,20 @@ endif
 file2 = datapath + 'pg10.fits'
 
 ;if choice eq 0 then begin
-galaxy = MRDFITS(file_galaxy,1)
+galaxy = MRDFITS(file_galaxy,1, /sil)
 
-if wise eq 1 then fg = MRDFITS(filegw1,1)
-if wise eq 2 then fg = MRDFITS(filegw2,1)
-if wise eq 0 then fg = MRDFITS(file2,1)
+if wise eq 1 then fg = MRDFITS(filegw1,1, /sil)
+if wise eq 2 then fg = MRDFITS(filegw2,1, /sil)
+if wise eq 0 then fg = MRDFITS(file2,1, /sil)
 
 ; don't need this, I don't think
 if wise eq 0 then begin
-	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr)
+	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr, /sil)
 	amag = kc.absmag[2]
 endif
 
 if wise ne 0 then begin
-	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr)
+	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr, /sil)
 	amag = kc[fg.index].absmag[2]
 endif
 
@@ -60,8 +64,13 @@ endif
 ;mag =  mrdfits(datapath +'magnitudes_dr7_1sig.fits',1, hdr)
 ;endif
 
-trunc = 1
-a = MRDFITS(file_stomp,1)
+
+a = MRDFITS(file_stomp,1, /sil)
+
+
+;restore, (file_stomp_asec)
+;a.physical_separation_mpc = asec/1000.*2.0
+
 ;a = a[where(a.physical_separation_mpc lt 1)]
 ; option to get rid of the southern strips. NOT SUGGESTED
 
@@ -78,7 +87,7 @@ if docorrect then begin
 	nfg = n_elements(fg)
 	fg.color=fg.color - total(rebin(reform(fg.z, nfg, 1), nfg, order+1)^(rebin(reform(findgen(order+1), 1, order+1), nfg, order+1))*rebin(pf, nfg, order+1), 2)
 	rollmed, fg.z, fg.color, 0.003, xz, yc
-	;oplot, xz, yc, psym=4, color=100
+;	plot, xz, yc, psym=4, color=100	
 endif
 
 if keyword_set(spectromags) then begin
@@ -90,19 +99,37 @@ endif
 
 ; do the actual fit to the data
 if keyword_set(dofit) then begin
-; option to use median fitting. SUGGESTED.
+	
+	zbuf = 0.025
+	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
+
+	; option to use median fitting. SUGGESTED.
 	usemed = 1
+	; brice's fix to deal with flattening population with z.
+	impactnorm=1
+	normfrac=0.8
 	if usemed then begin
 		method = 'plfit_mars'
 		fg.color = fg.color-median(fg.color)
+		print, median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
+		if impactnorm then fg.color = fg.color - median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
 	endif else begin
 		method = 'plfit'
 		fg.color = fg.color-mean(fg.color)
+		if impactnorm then fg.color = fg.color - mean(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
 	endelse
+
+	alimit = 0.250
+	a = a[where(a.physical_separation_mpc lt alimit)]
+	amin = 0.010	
+	a = a[where(a.physical_separation_mpc gt amin)]
 	
 	; option to avoid fitting to specific star formation rate	
 	nossfr=1
 	if nossfr then method = method+'nossfr'
+
+	trunc = 0
+
 
 	ys = fg[a.master_index].color
 	xs = fltarr(3, n_elements(a))
@@ -117,10 +144,11 @@ if keyword_set(dofit) then begin
 	; truncation with a single radius (1) or mass dependency (2)
 	if trunc eq 1 then method = 'trunc' + method
 	if trunc eq 2 then method = 'trunc2' + method
-	inparms = [1d-3, -1, 1, 1]
+	inparms = [-1d-2, -1d0, 1d0, 1d0]
 	if ~nossfr then inparms = [inparms, 1]
 	if trunc eq 1 then inparms = [inparms , 1]
 	if trunc eq 2 then inparms = [inparms , 1, 0.1]
+	print, 'method = ' + method
 	fit = mpfit(method, inparms, functargs=faMARS)
 endif
 
@@ -128,7 +156,7 @@ if keyword_set(dohist) then begin
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
 	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
 	mmax = 14.0
-	mmin = 10.2
+	mmin = 1
 	smin = (-20.0)
 	smax = (-1.0)
 ;	pmin =14
@@ -138,7 +166,7 @@ if keyword_set(dohist) then begin
 	a = a[where(a.ssfr_target lt smax and a.ssfr_target gt smin)]
 ;	a = a[where(a.pmagr_target lt pmax and a.pmagr_target gt pmin)]
 	
-	zbuf = 0.02
+	zbuf = 0.012
 	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
 	
 ;	if wise ne 0 then delmag = a.pmagr_target - fg[a.master_index].dered_mag[2]

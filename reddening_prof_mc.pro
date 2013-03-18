@@ -1,22 +1,36 @@
+pro reddening_prof_mc, nboot, backcheck=backcheck
+
 
 for wise=0, 1 do begin
-
-if wise then begin
-	file_stomp = '../STOMP_OUTPUT/MPA-WISE.fit' 
+datapath = '~/Dropbox/LowZHaloDustData/'
+if wise eq 1 then begin
+	file_stomp = datapath + 'MPA-WISE.fit'
+	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
 	my_y_tit = textoidl('Color excess g-W1 [mag]')
-endif else begin
-	 file_stomp = '../STOMP_OUTPUT/MPA-SDSS.fit'
+endif
+if wise eq 2 then begin
+	file_stomp = datapath + 'MPA-WISE.fit'
+	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
+	my_y_tit = textoidl('Color excess g-W2 [mag]')
+endif
+if wise eq 0 then begin
+	 file_stomp = datapath + 'MPA-SDSS.fit'
+;	 file_stomp_asec = datapath + 'MPA-SDSS_asec.sav'
+	 if keyword_set(backcheck) then begin
+	 	file_stomp = datapath + 'MPA-SDSS_REVERSE.fit' 
+	;	file_stomp_asec = datapath + 'MPA-SDSS_REVERSE_asec.sav'
+	endif
 	 my_y_tit = textoidl('Color excess g-r [mag]')
-endelse
+endif
 
-file_galaxy = '../DATA/fg_MPAJHU.fits'
-file1 = '../DATA/g-W1_nod5.fits'
-file2 = '../DATA/pg10.fits'
+file_galaxy = datapath + 'fg_MPAJHU.fits'
+file1 = datapath +'g-W1_nod5.fits'
+file2 = datapath + 'pg10.fits'
 
 galaxy = MRDFITS(file_galaxy,1)
 gW1 = MRDFITS(file1,1)
 pg10 = MRDFITS(file2,1)
-img = mrdfits('~/Documents/HVCreddening/imaging_dr7_1sig.fits',1, hdr)
+;img = mrdfits('~/Documents/HVCreddening/imaging_dr7_1sig.fits',1, hdr)
 
 a = MRDFITS(file_stomp,1)
 a = a(where(a.physical_separation_mpc lt 1))
@@ -30,21 +44,31 @@ nfg = n_elements(fg)
 fg.color=fg.color - total(rebin(reform(fg.z, nfg, 1), nfg, order+1)^(rebin(reform(findgen(order+1), 1, order+1), nfg, order+1))*rebin(pf, nfg, order+1), 2)
 rollmed, fg.z, fg.color, 0.003, xz, yc
 
-nboot = 1
+normfrac=0.8
+fg.color = fg.color - median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
 
 errs=fltarr(n_elements(a)) + 0.023
 
-allp = fltarr(nboot, 5)
+allp = fltarr(nboot, 4)
 allin = allp
+
+	alimit = 0.250
+	a = a[where(a.physical_separation_mpc lt alimit)]
+	amin = 0.030	
+	a = a[where(a.physical_separation_mpc gt amin)]
+
+	zbuf = 0.03	
+	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
+
 
 st = systime(/sec)
 for i=0, nboot-1 do begin
-	inparms = [2d-3, -2, 2, 0, 2]*randomu(seed, 5)
+	inparms = [2d-3, -2, 2, 0]*randomu(seed, 5);-[1d-3, -1, 1, 0]
 	allin[i, *] = inparms
 	loop_bar, i, nboot
 	boot = randomu(seed, n_elements(a))*n_elements(a)
 	if i eq 0 then boot = findgen(n_elements(a))
-	ys = fg[a[boot].master_index].color
+	ys = (fg[a[boot].master_index].color)[sort(randomu(seed, n_elements(a)))]
 	xs = fltarr(3, n_elements(a))
 	xs[0, *] = a[boot].physical_separation_mpc*10. ; at 100 kpc
 	xs[1, *] = 10^(a[boot].mass_target - 10.77)
@@ -56,9 +80,11 @@ for i=0, nboot-1 do begin
 	errs=fltarr(n_elements(a)) + 0.023
 
 	faMARS = {x:xs, y:ys, err:errs}
-	allp[i, *] = mpfit('truncplfit_marsnossfr', inparms, functargs=faMARS, /quiet)
+	allp[i, *] = mpfit('plfit_marsnossfr', inparms, functargs=faMARS, /quiet)
 endfor
-if wise then file = 'allpttrnossfr_WISE1_noboot.sav' else file = 'allpttrnossfr_PG101_noboot	.sav'
+
+if keyword_set(backcheck) then check = 'bck' else check = 'fwd'
+if wise then file = 'MC_WISE'+check+'.sav' else file = 'MC_SDSS'+check+'.sav'
 save, allp, allin, f=file
 
 endfor
