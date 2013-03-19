@@ -18,9 +18,14 @@ reload(load_sample)
 datapath = os.path.expanduser('~') + '/Dropbox/LowZHaloDustData/'
 target_file = datapath + 'fg_MPAJHU.fits'
 
-background_file = datapath + 'pg10.fits'
+#background_file = datapath + 'pg10.fits'
 #output_file_name = datapath + 'MPA-SDSS.fit'
-output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+#output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+
+background_file = datapath + 'galex_match_coords.fits'
+output_file_name = datapath + 'MPA-GALEX.fit'
+#output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+
 
 #background_file = datapath + 'g-W1_nod5.fits'
 #output_file_name = datapath + 'MPA-WISE.fit'
@@ -36,7 +41,7 @@ output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
 r_p_min_kpc = 20.
 r_p_max_kpc = 3000.
 theta_min_arcsec = 2.
-delta_z = 0.0033
+delta_z = 0.015
 z_min = 0.04
 ############################################################
 ############################################################
@@ -125,7 +130,7 @@ for target in target_map[:]:
 		# LOOKING FOR REDDENING BY GALAXIES BEHIND THE BACKGROUND
 		# IS SIMPLY A CHECK TO MAKE SURE WE AREN'T BEING FOOLED
 		################### WARNING ###################
-		if ( z_background < (z_target - delta_z)):
+		if ( z_background > (z_target + delta_z)):
 			x = background_sample[index].field('RA')
 			y = background_sample[index].field('DEC')
 			tmp_ang = stomp.AngularCoordinate(numpy.double(x),numpy.double(y),stomp.AngularCoordinate.Equatorial)
@@ -160,9 +165,11 @@ ssfr_target_col = pyfits.Column(name="ssfr_target", format="E", array=ssfr_targe
 pmagr_target_col = pyfits.Column(name="pmagr_target", format="E", array=pmagr_target_list)
 z_background_col = pyfits.Column(name="z_background", format="E", array=z_background_list)
 physical_separation_col = pyfits.Column(name="physical_separation_Mpc", format="E", array=physical_separation_list)
+separation_col = pyfits.Column(name="angle", format="E", array=separation_list)
+
 color_col = pyfits.Column(name="color", format="E", array=color_list)
 
-cols = pyfits.ColDefs([index_col, z_target_col, mass_target_col, ssfr_target_col, pmagr_target_col, z_background_col, physical_separation_col,color_col])
+cols = pyfits.ColDefs([index_col, z_target_col, mass_target_col, ssfr_target_col, pmagr_target_col, z_background_col, physical_separation_col, separation_col, color_col])
 
 my_output = pyfits.new_table(cols)
 print "Writing to %s..." % output_file_name

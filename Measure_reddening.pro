@@ -1,4 +1,4 @@
-pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags
+pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 ; FIT: if dofit is set, this is an output of the fit parameters
@@ -49,7 +49,6 @@ if wise eq 1 then fg = MRDFITS(filegw1,1, /sil)
 if wise eq 2 then fg = MRDFITS(filegw2,1, /sil)
 if wise eq 0 then fg = MRDFITS(file2,1, /sil)
 
-; don't need this, I don't think
 if wise eq 0 then begin
 	kc = mrdfits('../../HVCreddening/kcorr0_v4.2_dr7_1sig.fits', 1, hdr, /sil)
 	amag = kc.absmag[2]
@@ -65,7 +64,13 @@ endif
 ;endif
 
 
-a = MRDFITS(file_stomp,1, /sil)
+if ~keyword_set(a0) then a0 = MRDFITS(file_stomp,1, /sil)
+a = a0
+
+if keyword_set(use10) then begin
+	restore, '../../HVCreddening/gal_color.sav'
+	fg.color = reform(gcs[*, use10])
+endif
 
 
 ;restore, (file_stomp_asec)
@@ -100,7 +105,7 @@ endif
 ; do the actual fit to the data
 if keyword_set(dofit) then begin
 	
-	zbuf = 0.025
+
 	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
 
 	; option to use median fitting. SUGGESTED.
@@ -112,14 +117,18 @@ if keyword_set(dofit) then begin
 		method = 'plfit_mars'
 		fg.color = fg.color-median(fg.color)
 		print, median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
-		if impactnorm then fg.color = fg.color - median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
+		if impactnorm then begin
+			inorm = median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
+			print, 'inorm = ' + string(inorm)
+			fg.color = fg.color - inorm
+		endif
 	endif else begin
 		method = 'plfit'
 		fg.color = fg.color-mean(fg.color)
 		if impactnorm then fg.color = fg.color - mean(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
 	endelse
 
-	alimit = 0.250
+	alimit = 0.500
 	a = a[where(a.physical_separation_mpc lt alimit)]
 	amin = 0.010	
 	a = a[where(a.physical_separation_mpc gt amin)]
@@ -128,15 +137,15 @@ if keyword_set(dofit) then begin
 	nossfr=1
 	if nossfr then method = method+'nossfr'
 
-	trunc = 0
-
+	trunc = 0	
 
 	ys = fg[a.master_index].color
 	xs = fltarr(3, n_elements(a))
 	xs[0, *] = a.physical_separation_mpc*10. ; in units of 100 kpc
 	xs[1, *] = 10^(a.mass_target - 10.77) ; in units of 6 x 10^10 solar masses
 	ssfr = a.ssfr_target
-	ssfr(where(ssfr lt -20)) = min(ssfr(where(ssfr gt -20))) ; get rid of a few crazy outliers
+	czsfr = where(ssfr lt -20, ct)
+	if ct ne 0 then ssfr(czsfr) = min(ssfr(where(ssfr gt -20))) ; get rid of a few crazy outliers
 	xs[2, *] = 10^(a.ssfr_target + 11) ; in units of the ~median SSFR, 10^-11 
 	errs=fltarr(n_elements(a)) + 0.023 ; this doesn't actually get used in the median fit, FYI
 	faMARS = {x:xs, y:ys, err:errs}
@@ -144,7 +153,7 @@ if keyword_set(dofit) then begin
 	; truncation with a single radius (1) or mass dependency (2)
 	if trunc eq 1 then method = 'trunc' + method
 	if trunc eq 2 then method = 'trunc2' + method
-	inparms = [-1d-2, -1d0, 1d0, 1d0]
+	inparms = [1d-2, 1d0, 1d0, 1d0];*randomu(seed, 4)
 	if ~nossfr then inparms = [inparms, 1]
 	if trunc eq 1 then inparms = [inparms , 1]
 	if trunc eq 2 then inparms = [inparms , 1, 0.1]
@@ -166,7 +175,6 @@ if keyword_set(dohist) then begin
 	a = a[where(a.ssfr_target lt smax and a.ssfr_target gt smin)]
 ;	a = a[where(a.pmagr_target lt pmax and a.pmagr_target gt pmin)]
 	
-	zbuf = 0.012
 	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
 	
 ;	if wise ne 0 then delmag = a.pmagr_target - fg[a.master_index].dered_mag[2]
