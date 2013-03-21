@@ -1,4 +1,4 @@
-pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10
+pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10, galex=galex
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 ; FIT: if dofit is set, this is an output of the fit parameters
@@ -31,6 +31,12 @@ if wise eq 0 then begin
 endif
 
 file_galaxy = datapath +'fg_MPAJHU.fits'
+
+if rc eq 0 then begin
+	filegw1 = datapath +'u-W1_nod5.fits' 
+	filegw2 = datapath + 'u-W2_nod5.fits'
+endif
+
 if rc eq 1 then begin
 	filegw1 = datapath +'g-W1_nod5.fits' 
 	filegw2 = datapath + 'g-W2_nod5.fits'
@@ -41,6 +47,10 @@ if rc eq 2 then begin
 endif
 
 file2 = datapath + 'pg10.fits'
+
+if keyword_set(galex) then begin
+	file_stomp = datapath + 'MPA-GALEX.fit'
+endif
 
 ;if choice eq 0 then begin
 galaxy = MRDFITS(file_galaxy,1, /sil)
@@ -59,13 +69,18 @@ if wise ne 0 then begin
 	amag = kc[fg.index].absmag[2]
 endif
 
+if keyword_set(galex) then begin
+	fg = mrdfits(datapath +'galex_match_coords.fits', 1)
+	whclr = where(fg.color gt 5000, ctclr)
+	if ctclr ne 0 then fg[whclr].color = median(fg.color)
+endif
 
 ;mag =  mrdfits(datapath +'magnitudes_dr7_1sig.fits',1, hdr)
 ;endif
 
 
-if ~keyword_set(a0) then a0 = MRDFITS(file_stomp,1, /sil)
-a = a0
+if ~keyword_set(a0) then a = MRDFITS(file_stomp,1, /sil)
+;a = a0
 
 if keyword_set(use10) then begin
 	restore, '../../HVCreddening/gal_color.sav'
@@ -183,7 +198,7 @@ if keyword_set(dohist) then begin
 ; 	a = a[whdm]
 ; 	delmag = delmag[whdm]
     n_r_bin = 10
-    r_vector = make_vector(0.02,3.,/log,n_r_bin)
+    r_vector = make_vector(0.02,3. - (keyword_set(galex)*2),/log,n_r_bin)
     color_single = {mean:0.,mean_err:0.,count:0L,median:0., medbterr:0., meanbterr:0., medzbin:0.}
     color_list = REPLICATE(color_single, n_r_bin)
     
@@ -254,7 +269,7 @@ if keyword_set(dohist) then begin
     oplot,x,y,psym=4, color=getcolor('red',1)
         my_oploterr,x,y,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('red',1)
     ylast = y[n_elements(y)-1]
-    oplot, x, color_list.medzbin,color=getcolor('red',1), psym=-2
+    oplot, x, color_list.medzbin,color=getcolor('red',1), psym=-2, line=1	
     oplot, x, color_list.medzbin*(-1),color=getcolor('blue',1), psym=-2
 	print,color_list.medzbin
       oplot,x*1.05,y*(-1),psym=4, color=getcolor('blue',1)

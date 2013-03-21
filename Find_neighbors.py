@@ -18,18 +18,18 @@ reload(load_sample)
 datapath = os.path.expanduser('~') + '/Dropbox/LowZHaloDustData/'
 target_file = datapath + 'fg_MPAJHU.fits'
 
-#background_file = datapath + 'pg10.fits'
-#output_file_name = datapath + 'MPA-SDSS.fit'
-#output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+background_file = datapath + 'pg10.fits'
+#output_file_name = datapath + 'MPA-SDSS_angspace.fit'
+output_file_name = datapath + 'MPA-SDSS_REVERSE_angspace.fit'
 
-background_file = datapath + 'galex_match_coords.fits'
-output_file_name = datapath + 'MPA-GALEX.fit'
-#output_file_name = datapath + 'MPA-SDSS_REVERSE.fit'
+#background_file = datapath + 'galex_match_coords.fits'
+#output_file_name = datapath + 'MPA-GALEX.fit'
+#output_file_name = datapath + 'MPA-GALEX_REVERSE.fit'
 
 
 #background_file = datapath + 'g-W1_nod5.fits'
 #output_file_name = datapath + 'MPA-WISE.fit'
-#output_file_name = datapath + 'MPA-WISE_REVERSE.fit'
+#output_file_name = datapath	 + 'MPA-WISE_REVERSE.fit'
 
 
 # a stomp-specific format. Created by Ryan. Code exists for making such masks within stomp, fwiw
@@ -38,37 +38,38 @@ output_file_name = datapath + 'MPA-GALEX.fit'
 #map_file = data_path + 'stripe_photoz.hmap_basic'
 
 #### Parameters
-r_p_min_kpc = 20.
-r_p_max_kpc = 3000.
-theta_min_arcsec = 2.
-delta_z = 0.015
+#r_p_min_kpc = 20.
+#r_p_max_kpc = 1000.
+theta_min_arcsec = 5.
+theta_max_arcsec = 1000.
+delta_z = 0.00
 z_min = 0.04
 ############################################################
 ############################################################
 
 
 print "Current output file: %s " %output_file_name
-print "New output? [y/n]"
-choice = sys.stdin.readline()
-choice
-if choice[0] == 'y':
-	print "new output filename:"
-	output_file_name = sys.stdin.readline().replace('\n','')
-	print colored("Output filename used: %s",'cyan') %output_file_name
+#print "New output? [y/n]"
+#choice = sys.stdin.readline()
+#choice
+#if choice[0] == 'y':
+#print "new output filename:"
+#output_file_name = sys.stdin.readline().replace('\n','')
+#print colored("Output filename used: %s",'cyan') %output_file_name
 	
 #    print 'Loading map: %s' %map_file
 #    my_map = stomp.Map(map_file)
 #    print colored("Map area: %3.2f deg^2" %my_map.Area() , 'cyan' )
 
-print "Load foreground data? [1=Yes]"
-choice = sys.stdin.readline()
-if choice[0] == '1':
-        target_sample, target_map = load_sample.load_sample(target_file,z_min=z_min) #,n_max=20000)
+#print "Load foreground data? [1=Yes]"
+#choice = sys.stdin.readline()
+#if choice[0] == '1':
+target_sample, target_map = load_sample.load_sample(target_file,z_min=z_min) #,n_max=20000)
 		
-print "Load background data? [1=Yes]"
-choice = sys.stdin.readline()
-if choice[0] == '1':
-	background_sample, background_map = load_sample.load_sample(background_file,z_min=z_min) #, n_max=20000)
+#print "Load background data? [1=Yes]"
+#choice = sys.stdin.readline()
+#if choice[0] == '1':
+background_sample, background_map = load_sample.load_sample(background_file,z_min=z_min) #, n_max=20000)
 	
 print "Median foreground redshift:",numpy.median(target_sample.field('z'))
 	
@@ -94,6 +95,7 @@ pmagr_target_list = []
 z_background_list = []
 master_index_list = []
 master_list = []
+target_index_list = []
 
 
 print 'Finding pairs and computing physical separation...'
@@ -112,8 +114,12 @@ for target in target_map[:]:
 	pmagr_target = target_sample[target.Index()].field('pmagr')
 	dist_to_target_Mpc = stomp.Cosmology_AngularDiameterDistance( numpy.double(z_target) )
 	
-	theta_min = r_p_min_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
-	theta_max = r_p_max_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
+	#theta_min = r_p_min_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
+	#theta_max = r_p_max_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
+	# Note: switching over to angle space here...
+	theta_min = theta_min_arcsec/3600.
+	theta_max = theta_max_arcsec/3600.
+	
 	angular_bin_temp = stomp.AngularBin(theta_min,theta_max)
 	
 	# Find pairs is the brains of the code, and is a method of the tree object
@@ -130,7 +136,7 @@ for target in target_map[:]:
 		# LOOKING FOR REDDENING BY GALAXIES BEHIND THE BACKGROUND
 		# IS SIMPLY A CHECK TO MAKE SURE WE AREN'T BEING FOOLED
 		################### WARNING ###################
-		if ( z_background > (z_target + delta_z)):
+		if ( z_background < (z_target - delta_z)):
 			x = background_sample[index].field('RA')
 			y = background_sample[index].field('DEC')
 			tmp_ang = stomp.AngularCoordinate(numpy.double(x),numpy.double(y),stomp.AngularCoordinate.Equatorial)
@@ -144,6 +150,7 @@ for target in target_map[:]:
 				mass_target_list.append(mass_target)
 				ssfr_target_list.append(ssfr_target)
 				pmagr_target_list.append(pmagr_target)
+				target_index_list.append(i_target)
 				z_background_list.append(z_background)
 				physical_separation = stomp.Cosmology_ProjectedDistance( numpy.double(z_target), separation_arcsec/3600.)
 				# the physical separation is in Mpc
@@ -151,7 +158,7 @@ for target in target_map[:]:
 				color = background_sample[index].field('color')
 				color_list.append(color)
 				
-				master_list.append([z_target,mass_target, ssfr_target, pmagr_target,index,separation_arcsec,physical_separation,color])
+				master_list.append([z_target,mass_target, ssfr_target, pmagr_target,index,separation_arcsec,physical_separation, i_target, color])
 
 				
 print "found %i pairs" % len(z_background_list)
@@ -167,9 +174,11 @@ z_background_col = pyfits.Column(name="z_background", format="E", array=z_backgr
 physical_separation_col = pyfits.Column(name="physical_separation_Mpc", format="E", array=physical_separation_list)
 separation_col = pyfits.Column(name="angle", format="E", array=separation_list)
 
+target_index_col = pyfits.Column(name="target_index", format="J", array=target_index_list)
+
 color_col = pyfits.Column(name="color", format="E", array=color_list)
 
-cols = pyfits.ColDefs([index_col, z_target_col, mass_target_col, ssfr_target_col, pmagr_target_col, z_background_col, physical_separation_col, separation_col, color_col])
+cols = pyfits.ColDefs([index_col, z_target_col, mass_target_col, ssfr_target_col, pmagr_target_col, z_background_col, physical_separation_col, separation_col, target_index_col, color_col])
 
 my_output = pyfits.new_table(cols)
 print "Writing to %s..." % output_file_name

@@ -3,22 +3,14 @@ pro reddening_prof_mc, nboot, backcheck=backcheck,use10=use10
 
 wise=0
 datapath = '~/Dropbox/LowZHaloDustData/'
-if wise eq 1 then begin
+if wise ne 0 then begin
 	file_stomp = datapath + 'MPA-WISE.fit'
 	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
-	my_y_tit = textoidl('Color excess g-W1 [mag]')
-endif
-if wise eq 2 then begin
-	file_stomp = datapath + 'MPA-WISE.fit'
-	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
-	my_y_tit = textoidl('Color excess g-W2 [mag]')
 endif
 if wise eq 0 then begin
 	 file_stomp = datapath + 'MPA-SDSS.fit'
-;	 file_stomp_asec = datapath + 'MPA-SDSS_asec.sav'
 	 if keyword_set(backcheck) then begin
 	 	file_stomp = datapath + 'MPA-SDSS_REVERSE.fit' 
-	;	file_stomp_asec = datapath + 'MPA-SDSS_REVERSE_asec.sav'
 	endif
 	 my_y_tit = textoidl('Color excess g-r [mag]')
 endif
@@ -37,7 +29,9 @@ pg10 = MRDFITS(file2,1)
 a = MRDFITS(file_stomp,1)
 a = a(where(a.physical_separation_mpc lt 1))
 
-if wise then fg = gW1 else fg = pg10
+if (wise eq 1) then fg = gW1 
+if (wise eq 0) then fg = pg10
+if (wise eq 3) then fg = mrdfits(datapath +'u-W1_nod5.fits', 1)
 
 if keyword_set(use10) then begin
 	restore, '../../HVCreddening/gal_color.sav'
@@ -98,7 +92,7 @@ endfor
 
 if keyword_set(backcheck) then check = 'bck' else check = 'fwd'
 if keyword_set(use10) then check = check + string(use10, f='(I2.2)')
-if wise then file = 'MC_WISE'+check+'.sav' else file = 'MC_SDSS'+check+'.sav'
+if (wise ne 0) then file = 'MC_WISE'+ string(wise, f='(I1.1)')+'_' + check+'.sav' else file = 'MC_SDSS'+check+'.sav'
 save, allp, allin, f=file
 
 
