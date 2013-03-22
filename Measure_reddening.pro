@@ -1,4 +1,4 @@
-pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10, galex=galex
+pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10, galex=galex, angle=angle
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 ; FIT: if dofit is set, this is an output of the fit parameters
@@ -7,27 +7,26 @@ pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backche
 ; PS: if set, output an eps file of the histograms
 ; RC: sdss filter to compare to WISE, if wise != 0. 1 is g-band, 2 is r-band
 
+
+if keyword_set(backcheck) then ttl = 'Reversed Test' else ttl= 'Reddening Measurement'
+
 resolve_routine,'display_data'
 
 datapath = '~/Dropbox/LowZHaloDustData/'
-if wise eq 1 then begin
+if wise ne 0 then begin
 	file_stomp = datapath + 'MPA-WISE.fit'
 	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
-	my_y_tit = textoidl('Color excess g-W1 [mag]')
 endif
-if wise eq 2 then begin
-	file_stomp = datapath + 'MPA-WISE.fit'
-	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
-	my_y_tit = textoidl('Color excess g-W2 [mag]')
-endif
+
+if wise eq 1 then my_y_tit = textoidl('Color excess g-W1 [mag]')
+if wise eq 2 then my_y_tit = textoidl('Color excess g-W2 [mag]')
+
 if wise eq 0 then begin
-	 file_stomp = datapath + 'MPA-SDSS.fit'
-;	 file_stomp_asec = datapath + 'MPA-SDSS_asec.sav'
-	 if keyword_set(backcheck) then begin
-	 	file_stomp = datapath + 'MPA-SDSS_REVERSE.fit' 
-	;	file_stomp_asec = datapath + 'MPA-SDSS_REVERSE_asec.sav'
-	endif
-	 my_y_tit = textoidl('Color excess g-r [mag]')
+	file_stomp = datapath + 'MPA-SDSS'
+	if keyword_set(backcheck) then	file_stomp = file_stomp + '_REVERSE' 
+	if keyword_set(angle) then	file_stomp = file_stomp + '_angspace'
+	file_stomp = file_stomp + '.fit'
+	my_y_tit = textoidl('Color excess g-r [mag]')
 endif
 
 file_galaxy = datapath +'fg_MPAJHU.fits'
@@ -85,14 +84,36 @@ if ~keyword_set(a0) then a = MRDFITS(file_stomp,1, /sil)
 if keyword_set(use10) then begin
 	restore, '../../HVCreddening/gal_color.sav'
 	fg.color = reform(gcs[*, use10])
+	c1 = [1,2,0,3,0,1,1,2, 0, 0]
+	c2 = [2,3,1,4,2,3,4,4, 3, 4]
+	clrs = ['u', 'g', 'r', 'i', 'z']
+	fc = [5.15500   ,   3.79300  ,    2.75100   ,   2.08600   ,   1.47900]
+	my_y_tit = textoidl('Effective E(B-V): '+clrs[c1[use10]] + '-' + clrs[c2[use10]] +'/' + strcompress(string(fc[c1[use10]]-fc[c2[use10]]),/rem) + ' [mag]')
+
 endif
 
+; all the tags associated with the stomp output
+tags = tag_names(a)
 
-;restore, (file_stomp_asec)
-;a.physical_separation_mpc = asec/1000.*2.0
+if keyword_set(angle) then xidx = reform(where(tags eq 'ANGLE')) else xidx = reform(where(tags eq 'PHYSICAL_SEPARATION_MPC'))
 
-;a = a[where(a.physical_separation_mpc lt 1)]
-; option to get rid of the southern strips. NOT SUGGESTED
+; convert angle from arcseconds to 10 arcminutes
+if keyword_set(angle) then a.(xidx) = a.(xidx)/600.
+
+dmag = 1
+if dmag then begin
+
+	restore, datapath + 'photo_magsrads.sav'
+	restore, datapath + 'pg10_dr7_match.sav'
+	restore, datapath + 'MPAJHU_dr7_match.sav'
+	add_tag, a, 'dmag', 0., a_dmag
+	a = a_dmag
+	a_dmag = 0.
+	; r band petrosian, for a start. dmag here is in the sense that larger means the obscurer is brighter
+	a.dmag =  (pmags[2, m2])[a.master_index] - (pmags[2, whfg])[a.target_index]
+	; note -- if I am really doing these matches correctly, why am I getting these -99s? It's not too many, but still. Worrisome for the accuracy of my matches, which may matter in the smallest separations (?)
+	a = a[where( ((pmags[2, whfg])[a.target_index] ne -9.99) and ((pmags[2, whfg])[a.target_index] ne -9999.0) and ((pmags[2, m2])[a.master_index] ne -9.99) and ((pmags[2, m2])[a.master_index] ne -9999.0))]
+endif
 
 north=0
 minra = 100
@@ -131,22 +152,22 @@ if keyword_set(dofit) then begin
 	if usemed then begin
 		method = 'plfit_mars'
 		fg.color = fg.color-median(fg.color)
-		print, median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
+		print, median(fg[a[where(a.(xidx) gt normfrac*max(a.(xidx)))].master_index].color)
 		if impactnorm then begin
-			inorm = median(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
+			inorm = median(fg[a[where(a.(xidx) gt normfrac*max(a.(xidx)))].master_index].color)
 			print, 'inorm = ' + string(inorm)
 			fg.color = fg.color - inorm
 		endif
 	endif else begin
 		method = 'plfit'
 		fg.color = fg.color-mean(fg.color)
-		if impactnorm then fg.color = fg.color - mean(fg[a[where(a.physical_separation_mpc gt normfrac*max(a.physical_separation_mpc))].master_index].color)
+		if impactnorm then fg.color = fg.color - mean(fg[a[where(a.(xidx) gt normfrac*max(a.(xidx)))].master_index].color)
 	endelse
 
 	alimit = 0.500
-	a = a[where(a.physical_separation_mpc lt alimit)]
+	a = a[where(a.(xidx) lt alimit)]
 	amin = 0.010	
-	a = a[where(a.physical_separation_mpc gt amin)]
+	a = a[where(a.(xidx) gt amin)]
 	
 	; option to avoid fitting to specific star formation rate	
 	nossfr=1
@@ -156,7 +177,7 @@ if keyword_set(dofit) then begin
 
 	ys = fg[a.master_index].color
 	xs = fltarr(3, n_elements(a))
-	xs[0, *] = a.physical_separation_mpc*10. ; in units of 100 kpc
+	xs[0, *] = a.(xidx)*10. ; in units of 100 kpc
 	xs[1, *] = 10^(a.mass_target - 10.77) ; in units of 6 x 10^10 solar masses
 	ssfr = a.ssfr_target
 	czsfr = where(ssfr lt -20, ct)
@@ -183,22 +204,20 @@ if keyword_set(dohist) then begin
 	mmin = 1
 	smin = (-20.0)
 	smax = (-1.0)
-;	pmin =14
-;	pmax = 21
+	dmin =1
+	dmax = 100
 	a = a[where(a.mass_target lt mmax and a.mass_target gt mmin)]
-	print, median(a.ssfr_target)
 	a = a[where(a.ssfr_target lt smax and a.ssfr_target gt smin)]
-;	a = a[where(a.pmagr_target lt pmax and a.pmagr_target gt pmin)]
+	a = a[where(a.dmag lt dmax and a.dmag gt dmin)]
 	
 	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
-	
 ;	if wise ne 0 then delmag = a.pmagr_target - fg[a.master_index].dered_mag[2]
 ;	if wise eq 0 then delmag = a.pmagr_target - mag[a.master_index].dered_mag[2]
 ;	whdm = where(delmag gt min(delmag))
 ; 	a = a[whdm]
 ; 	delmag = delmag[whdm]
     n_r_bin = 10
-    r_vector = make_vector(0.02,3. - (keyword_set(galex)*2),/log,n_r_bin)
+    r_vector = make_vector(0.02,3. < (max(a.(xidx))), /log,n_r_bin)
     color_single = {mean:0.,mean_err:0.,count:0L,median:0., medbterr:0., meanbterr:0., medzbin:0.}
     color_list = REPLICATE(color_single, n_r_bin)
     
@@ -214,8 +233,8 @@ if keyword_set(dohist) then begin
 	
     for i_bin=0,n_r_bin-1 do begin
     	loop_bar, i_bin, n_r_bin
-        ind_in_bin = where( ((a.physical_separation_mpc) gt r_vector[i_bin].bound_min) AND $
-                            ((a.physical_separation_mpc) lt r_vector[i_bin].bound_max), ct)
+        ind_in_bin = where( ((a.(xidx)) gt r_vector[i_bin].bound_min) AND $
+                            ((a.(xidx)) lt r_vector[i_bin].bound_max), ct)
 		if donormhist then begin
 			hgz_ind_in_bin = h2d_ri(a[ind_in_bin].z_background, amag[a[ind_in_bin].master_index], 0.02, 0.2, xrng=[0, 0.3], yrng=[-24, -16])
 			
@@ -246,8 +265,9 @@ if keyword_set(dohist) then begin
 		endif
     endfor
 	
-
+	circle, /fill
     x = r_vector.mean_2d*1000
+    print, x
     ; subtracting off some kind of error from the redshift distribution?
     y = color_list.median-color_list[n_r_bin-1].median
     y_err = color_list.mean_err
@@ -261,29 +281,36 @@ if keyword_set(dohist) then begin
 	if ~keyword_set(ps) then ps=0
     loadct, 0
     if ps then !p.font=0 else !p.font = (-1)
-    plot,x,y,/xlog,psym=4,yr=my_yr,ylog=1,xr=my_xr,$
-      xtit=textoidl('separation [kpc]'),$
-      ytit=my_y_tit, /xs, thick=th, xthick=th, ythick=th, /nodata
+	if keyword_set(angle) then begin
+		xtit='separation [arcmin]'
+    	xscl = 1d-3
+    endif else begin
+    	xtit='separation [kpc]'
+    	xscl=1
+    endelse
+    plot,x*xscl,y,/xlog,psym=4,yr=my_yr,ylog=1,xr=my_xr*xscl,$
+      xtit=xtit,$
+      ytit=my_y_tit, /xs, thick=th, xthick=th, ythick=th, /nodata, title=ttl, syms=0.6
 ;    my_oploterr,x,y,y_err,psym=4,miny=my_yr[0], thick=th
     print,y
-    oplot,x,y,psym=4, color=getcolor('red',1)
-        my_oploterr,x,y,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('red',1)
+    oplot,x*xscl,y,psym=8, color=getcolor('red',1), syms=0.6
+        my_oploterr,x*xscl,y,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('red',1)
     ylast = y[n_elements(y)-1]
-    oplot, x, color_list.medzbin,color=getcolor('red',1), psym=-2, line=1	
-    oplot, x, color_list.medzbin*(-1),color=getcolor('blue',1), psym=-2
+    ;oplot, x, color_list.medzbin,color=getcolor('red',1), psym=-2, line=1	
+    ;oplot, x, color_list.medzbin*(-1),color=getcolor('blue',1), psym=-2
 	print,color_list.medzbin
-      oplot,x*1.05,y*(-1),psym=4, color=getcolor('blue',1)
-        my_oploterr,x*1.05,y*(-1),y_err,psym=4,miny=my_yr[0],errcolor=getcolor('blue',1), linestyle=1
+	oplot,x*1.05*xscl,y*(-1),psym=8, color=getcolor('blue',1), syms=0.6     
+	my_oploterr,x*1.05*xscl,y*(-1),y_err,psym=4,miny=my_yr[0],errcolor=getcolor('blue',1), linestyle=1
  
   ;  oplot,x*1.05,y-ylast,psym=4, color=getcolor('green',1)
    ; 	my_oploterr,x*1.05,y-ylast,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('green',1)
 	
 	xax = alog10(findgen(100)*10)
-	oplot, 10^xax, 0.5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
-	oplot, 10^xax, 4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=2
-	oplot, 10^xax, 5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
-	xyouts, 0.7, 0.8, mean(10^(a.mass_target)), /norm, charsize=3-ps*2
-	xyouts, 0.7, 0.7, mean(a.z_target), /norm, charsize=3-ps*2
+	oplot, xscl*10^xax, 0.5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
+	oplot, xscl*10^xax, 4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=2
+	oplot, xscl*10^xax, 5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
+	;xyouts, 0.7, 0.8, mean(10^(a.mass_target)), /norm, charsize=3-ps*2
+	;xyouts, 0.7, 0.7, mean(a.z_target), /norm, charsize=3-ps*2
 	print, 	(mean(10^(a.mass_target)))
 	if keyword_set(ps) then psclose
 endif

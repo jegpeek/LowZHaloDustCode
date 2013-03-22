@@ -112,6 +112,7 @@ for target in target_map[:]:
 	mass_target = target_sample[target.Index()].field('mass')
 	ssfr_target = target_sample[target.Index()].field('ssfr')
 	pmagr_target = target_sample[target.Index()].field('pmagr')
+	index_target = target_sample[target.Index()].field('index')
 	dist_to_target_Mpc = stomp.Cosmology_AngularDiameterDistance( numpy.double(z_target) )
 	
 	#theta_min = r_p_min_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
@@ -150,7 +151,7 @@ for target in target_map[:]:
 				mass_target_list.append(mass_target)
 				ssfr_target_list.append(ssfr_target)
 				pmagr_target_list.append(pmagr_target)
-				target_index_list.append(i_target)
+				target_index_list.append(index_target)
 				z_background_list.append(z_background)
 				physical_separation = stomp.Cosmology_ProjectedDistance( numpy.double(z_target), separation_arcsec/3600.)
 				# the physical separation is in Mpc
