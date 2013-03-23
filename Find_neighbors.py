@@ -18,18 +18,18 @@ reload(load_sample)
 datapath = os.path.expanduser('~') + '/Dropbox/LowZHaloDustData/'
 target_file = datapath + 'fg_MPAJHU.fits'
 
-background_file = datapath + 'pg10.fits'
+#background_file = datapath + 'pg10.fits'
 #output_file_name = datapath + 'MPA-SDSS_angspace.fit'
-output_file_name = datapath + 'MPA-SDSS_REVERSE_angspace.fit'
+#output_file_name = datapath + 'MPA-SDSS_REVERSE_angspace.fit'
 
 #background_file = datapath + 'galex_match_coords.fits'
 #output_file_name = datapath + 'MPA-GALEX.fit'
 #output_file_name = datapath + 'MPA-GALEX_REVERSE.fit'
 
 
-#background_file = datapath + 'g-W1_nod5.fits'
-#output_file_name = datapath + 'MPA-WISE.fit'
-#output_file_name = datapath	 + 'MPA-WISE_REVERSE.fit'
+background_file = datapath + 'g-W1_nod5.fits'
+#output_file_name = datapath + 'MPA-WISE_angspace.fit'
+output_file_name = datapath	 + 'MPA-WISE_REVERSE_angspace.fit'
 
 
 # a stomp-specific format. Created by Ryan. Code exists for making such masks within stomp, fwiw

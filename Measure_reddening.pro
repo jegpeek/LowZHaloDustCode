@@ -1,4 +1,4 @@
-pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10, galex=galex, angle=angle
+pro Measure_reddening, wise, fit, rc, dofit=dofit, dohist=dohist, ps=ps, backcheck=backcheck, a=a, delmag=delmag, spectromags=spectromags, a0=a0,zbuf = zbuf, use10=use10, galex=galex, angle=angle, dmin=dmin, dmax=dmax, mmin=mmin
 
 ; WISE: 0 is g-r, 1 is g-W1, 2 is g-W2
 ; FIT: if dofit is set, this is an output of the fit parameters
@@ -14,20 +14,18 @@ resolve_routine,'display_data'
 
 datapath = '~/Dropbox/LowZHaloDustData/'
 if wise ne 0 then begin
-	file_stomp = datapath + 'MPA-WISE.fit'
-	if keyword_set(backcheck) then file_stomp = datapath + 'MPA-WISE_REVERSE.fit' 
+	file_stomp = datapath + 'MPA-WISE'
 endif
-
 if wise eq 1 then my_y_tit = textoidl('Color excess g-W1 [mag]')
 if wise eq 2 then my_y_tit = textoidl('Color excess g-W2 [mag]')
-
 if wise eq 0 then begin
 	file_stomp = datapath + 'MPA-SDSS'
-	if keyword_set(backcheck) then	file_stomp = file_stomp + '_REVERSE' 
-	if keyword_set(angle) then	file_stomp = file_stomp + '_angspace'
-	file_stomp = file_stomp + '.fit'
 	my_y_tit = textoidl('Color excess g-r [mag]')
 endif
+
+if keyword_set(backcheck) then	file_stomp = file_stomp + '_REVERSE' 
+if keyword_set(angle) then file_stomp = file_stomp + '_angspace'
+file_stomp = file_stomp + '.fit'
 
 file_galaxy = datapath +'fg_MPAJHU.fits'
 
@@ -100,20 +98,25 @@ if keyword_set(angle) then xidx = reform(where(tags eq 'ANGLE')) else xidx = ref
 ; convert angle from arcseconds to 10 arcminutes
 if keyword_set(angle) then a.(xidx) = a.(xidx)/600.
 
-dmag = 1
-if dmag then begin
-
+photo = 1
+if photo then begin
+	dmf = 1
 	restore, datapath + 'photo_magsrads.sav'
 	restore, datapath + 'pg10_dr7_match.sav'
 	restore, datapath + 'MPAJHU_dr7_match.sav'
-	add_tag, a, 'dmag', 0., a_dmag
-	a = a_dmag
-	a_dmag = 0.
+	add_tag, a, 'photo', 0., a_photo
+	a = a_photo
+	a_photo = 0.
 	; r band petrosian, for a start. dmag here is in the sense that larger means the obscurer is brighter
-	a.dmag =  (pmags[2, m2])[a.master_index] - (pmags[2, whfg])[a.target_index]
+	a.photo =  (pmags[dmf, m2])[a.master_index] - (pmags[dmf, whfg])[a.target_index]
+	a.photo =  (prads[dmf, whfg])[a.target_index]
 	; note -- if I am really doing these matches correctly, why am I getting these -99s? It's not too many, but still. Worrisome for the accuracy of my matches, which may matter in the smallest separations (?)
-	a = a[where( ((pmags[2, whfg])[a.target_index] ne -9.99) and ((pmags[2, whfg])[a.target_index] ne -9999.0) and ((pmags[2, m2])[a.master_index] ne -9.99) and ((pmags[2, m2])[a.master_index] ne -9999.0))]
+	a = a[where( ((pmags[dmf, whfg])[a.target_index] ne -9.99) and ((pmags[dmf, whfg])[a.target_index] ne -9999.0) and ((pmags[dmf, m2])[a.master_index] ne -9.99) and ((pmags[dmf, m2])[a.master_index] ne -9999.0))]
+	r90 = a.photo                                                    
+	r90 = r90(where(r90 gt 0))                                      
+	plothist, alog10(r90/60.), xr90, yr90, bin=0.01, /noplot            
 endif
+
 
 north=0
 minra = 100
@@ -200,17 +203,25 @@ endif
 if keyword_set(dohist) then begin	
 	if north then a = a[ where(fg[a.master_index].ra gt minra and fg[a.master_index].ra lt maxra)]
 	; set parameters for limits on mass, SSFR. 14, 1, -20, -1 is effectively without limits
+	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
+
+
+	if photo then begin	
+		r90 = a.photo                                                    
+		r90 = r90(where(r90 gt 0))                                      
+		plothist, alog10(r90/60.), xr90, yr90, bin=0.01, /noplot            
+	endif
+
 	mmax = 14.0
-	mmin = 1
+	if ~keyword_set(mmin) then	mmin = 1
 	smin = (-20.0)
 	smax = (-1.0)
-	dmin =1
-	dmax = 100
+	if ~keyword_set(dmin) then dmin =0		
+	if ~keyword_set(dmax) then dmax = 10000 
 	a = a[where(a.mass_target lt mmax and a.mass_target gt mmin)]
 	a = a[where(a.ssfr_target lt smax and a.ssfr_target gt smin)]
-	a = a[where(a.dmag lt dmax and a.dmag gt dmin)]
+	a = a[where(a.photo lt dmax and a.photo gt dmin)]
 	
-	if keyword_set(backcheck) then a = a[where(a.z_target gt (a.z_background + zbuf))] else a = a[where((a.z_target +zbuf) lt a.z_background)] 
 ;	if wise ne 0 then delmag = a.pmagr_target - fg[a.master_index].dered_mag[2]
 ;	if wise eq 0 then delmag = a.pmagr_target - mag[a.master_index].dered_mag[2]
 ;	whdm = where(delmag gt min(delmag))
@@ -223,13 +234,13 @@ if keyword_set(dohist) then begin
     
 	mdclr=  median(fg.color)
 	mnclr=  mean(fg.color)
-	hgz = h2d_ri(fg.z, amag, zvec=fg.color-mnclr, 0.02, 0.2, xrng=[0, 0.3], yrng=[-24, -16], zimg=clrh2d)
+	;hgz = h2d_ri(fg.z, amag, zvec=fg.color-mnclr, 0.02, 0.2, xrng=[0, 0.3], yrng=[-24, -16], zimg=clrh2d)
 	
 	if north then begin
 		mdclr=  median(fg[where(fg.ra gt minRA and fg.ra lt maxRA)].color)
 		mnclr=  mean(fg[where(fg.ra gt minRA and fg.ra lt maxRA)].color)
 	endif
-	donormhist = 1
+	donormhist = 0
 	
     for i_bin=0,n_r_bin-1 do begin
     	loop_bar, i_bin, n_r_bin
@@ -275,7 +286,7 @@ if keyword_set(dohist) then begin
     print,color_list.count
 	th = 5
     my_Yr = [1e-5,1e-1]
-    my_xr = [0.02,3.0]*1000.
+    my_xr = [0.002,3.0]*1000.
 	cc = ['g-r', 'g-W1', 'g-W2']
     if keyword_set(ps) then psopen, datapath+'reddening_'+cc[wise]+'m' + string(mmin, f='(F4.1)') +'--'+ string(mmax, f='(F4.1)') + 's' + string(smin*(-1), f='(F4.1)') +'--'+ string(smax*(-1), f='(F4.1)'), /helvetica, xsi=9, ysi=6, /inches, /color, /encapsulated
 	if ~keyword_set(ps) then ps=0
@@ -283,7 +294,7 @@ if keyword_set(dohist) then begin
     if ps then !p.font=0 else !p.font = (-1)
 	if keyword_set(angle) then begin
 		xtit='separation [arcmin]'
-    	xscl = 1d-3
+    	xscl = 1d-2
     endif else begin
     	xtit='separation [kpc]'
     	xscl=1
@@ -291,6 +302,17 @@ if keyword_set(dohist) then begin
     plot,x*xscl,y,/xlog,psym=4,yr=my_yr,ylog=1,xr=my_xr*xscl,$
       xtit=xtit,$
       ytit=my_y_tit, /xs, thick=th, xthick=th, ythick=th, /nodata, title=ttl, syms=0.6
+      
+   	if photo then begin
+		r90 = a.photo                                                    
+		r90 = r90(where(r90 gt 0))                                      
+		
+		whang = where((10^xr90 gt dmin/60.) and (10^xr90 lt dmax/60.), ctang)
+		polyfill, [(10^xr90)[whang[0]], (10^xr90)[whang] > 10^!x.crange[0], (10^xr90)[whang[ctang-1]]] ,[10^!y.crange[0], (yr90*0.1/max(yr90))[whang],10^!y.crange[0]] > 10^!y.crange[0], color=200
+		oplot, 10^xr90, yr90*0.1/max(yr90), psym=10, thick=2 
+		xyouts, 0.1, 0.8, 'Petro R90 histogram', /normal
+	endif
+	
 ;    my_oploterr,x,y,y_err,psym=4,miny=my_yr[0], thick=th
     print,y
     oplot,x*xscl,y,psym=8, color=getcolor('red',1), syms=0.6
@@ -306,9 +328,10 @@ if keyword_set(dohist) then begin
    ; 	my_oploterr,x*1.05,y-ylast,y_err,psym=4,miny=my_yr[0],errcolor=getcolor('green',1)
 	
 	xax = alog10(findgen(100)*10)
-	oplot, xscl*10^xax, 0.5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
-	oplot, xscl*10^xax, 4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=2
-	oplot, xscl*10^xax, 5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
+	;oplot, xscl*10^xax, 0.5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
+	;oplot, xscl*10^xax, 4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=2
+	;oplot, xscl*10^xax, 5*4.14d-3/3.1*((10.^xax)/100.)^(-0.84), color=200, thick=2*th, lines=1
+
 	;xyouts, 0.7, 0.8, mean(10^(a.mass_target)), /norm, charsize=3-ps*2
 	;xyouts, 0.7, 0.7, mean(a.z_target), /norm, charsize=3-ps*2
 	print, 	(mean(10^(a.mass_target)))
