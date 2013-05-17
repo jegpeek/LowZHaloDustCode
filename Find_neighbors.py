@@ -27,9 +27,14 @@ target_file = datapath + 'fg_MPAJHU.fits'
 #output_file_name = datapath + 'MPA-GALEX_REVERSE.fit'
 
 
-background_file = datapath + 'g-W1_nod5.fits'
+#background_file = datapath + 'g-W1_nod5.fits'
 #output_file_name = datapath + 'MPA-WISE_angspace.fit'
-output_file_name = datapath	 + 'MPA-WISE_REVERSE_angspace.fit'
+#output_file_name = datapath	 + 'MPA-WISE_REVERSE_angspace.fit'
+
+background_file = datapath + 'NUV-FUV.fits'
+#output_file_name = datapath + 'MPA-GALEX.fit'
+output_file_name = datapath	 + 'MPA-GALEX_REVERSE.fit'
+
 
 
 # a stomp-specific format. Created by Ryan. Code exists for making such masks within stomp, fwiw
@@ -38,10 +43,10 @@ output_file_name = datapath	 + 'MPA-WISE_REVERSE_angspace.fit'
 #map_file = data_path + 'stripe_photoz.hmap_basic'
 
 #### Parameters
-#r_p_min_kpc = 20.
-#r_p_max_kpc = 1000.
+r_p_min_kpc = 20.
+r_p_max_kpc = 1000.
 theta_min_arcsec = 5.
-theta_max_arcsec = 1000.
+#theta_max_arcsec = 1000.
 delta_z = 0.00
 z_min = 0.04
 ############################################################
@@ -115,11 +120,11 @@ for target in target_map[:]:
 	index_target = target_sample[target.Index()].field('index')
 	dist_to_target_Mpc = stomp.Cosmology_AngularDiameterDistance( numpy.double(z_target) )
 	
-	#theta_min = r_p_min_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
-	#theta_max = r_p_max_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
+	theta_min = r_p_min_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
+	theta_max = r_p_max_kpc / (1e3 * dist_to_target_Mpc) * stomp.RadToDeg
 	# Note: switching over to angle space here...
-	theta_min = theta_min_arcsec/3600.
-	theta_max = theta_max_arcsec/3600.
+	#theta_min = theta_min_arcsec/3600.
+	#theta_max = theta_max_arcsec/3600.
 	
 	angular_bin_temp = stomp.AngularBin(theta_min,theta_max)
 	
